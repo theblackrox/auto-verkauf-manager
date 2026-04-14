@@ -2,7 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import { Auto } from '@/types';
-import { formatCurrency, calculateStatistics } from '@/utils/calculations';
+import { formatCurrency, calculateStatistics, calculateVerdienst } from '@/utils/calculations';
+
+const BRAND_COLORS = ['#3b82f6','#10b981','#f59e0b','#8b5cf6','#ef4444','#ec4899','#14b8a6','#f97316','#6366f1','#84cc16','#06b6d4','#a855f7'];
 import { useTheme } from '@/context/ThemeContext';
 import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
@@ -129,6 +131,22 @@ export default function StatisticsPanel({ autos, filterYear, filterMonth, filter
 
   const statistics = useMemo(() => calculateStatistics(autos), [autos]);
   const pieColors = [c.colorPos, c.colorBlue];
+
+  const [brandTab, setBrandTab] = useState<'anzahl' | 'verdienst'>('anzahl');
+  const brandPieData = useMemo(() => {
+    const sold = autos.filter(a => a.bereits_verkauft);
+    const map = new Map<string, { anzahl: number; verdienst: number }>();
+    for (const a of sold) {
+      const v = calculateVerdienst(a) ?? 0;
+      const existing = map.get(a.marke) ?? { anzahl: 0, verdienst: 0 };
+      existing.anzahl += 1;
+      existing.verdienst += v;
+      map.set(a.marke, existing);
+    }
+    return Array.from(map.entries())
+      .map(([marke, val]) => ({ marke, ...val }))
+      .sort((a, b) => b.anzahl - a.anzahl);
+  }, [autos]);
 
   const pieData = isEigeneFZ
     ? [
@@ -355,6 +373,92 @@ export default function StatisticsPanel({ autos, filterYear, filterMonth, filter
           </div>
         </div>
       </div>
+
+      {/* Marken Verteilung */}
+      {brandPieData.length > 0 && (
+        <div
+          className="rounded-2xl p-5"
+          style={{ background: c.card, border: `1px solid ${c.border}`, boxShadow: c.shadowCard }}
+        >
+          <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+            <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: c.textMuted }}>
+              Marken Verteilung (Verkaufte FZ)
+            </p>
+            <div className="flex gap-1 p-1 rounded-xl" style={{ background: c.cardSolid, border: `1px solid ${c.borderAccent}` }}>
+              {(['anzahl', 'verdienst'] as const).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setBrandTab(t)}
+                  className="px-3 py-1 rounded-lg text-xs font-medium transition-all"
+                  style={
+                    brandTab === t
+                      ? { background: 'linear-gradient(135deg, #2563eb, #4f46e5)', color: '#fff' }
+                      : { color: c.textMuted }
+                  }
+                >
+                  {t === 'anzahl' ? 'Anzahl FZ' : 'Verdienst'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="w-full md:max-w-[240px] mx-auto md:mx-0 shrink-0">
+              <ResponsiveContainer width="100%" height={220}>
+                <PieChart>
+                  <Pie
+                    data={brandPieData}
+                    dataKey={brandTab}
+                    nameKey="marke"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={58}
+                    outerRadius={88}
+                    paddingAngle={3}
+                    stroke="none"
+                  >
+                    {brandPieData.map((_, i) => (
+                      <Cell key={i} fill={BRAND_COLORS[i % BRAND_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value, _name, entry) => {
+                      const n = Number(value) || 0;
+                      const label = brandTab === 'anzahl' ? `${n} FZ` : formatCurrency(n);
+                      return [label, (entry?.payload as { marke?: string })?.marke ?? ''];
+                    }}
+                    contentStyle={{
+                      background: c.tooltipBg,
+                      border: `1px solid ${c.tooltipBorder}`,
+                      borderRadius: 12,
+                      color: c.textPrimary,
+                      fontSize: 13,
+                    }}
+                    labelStyle={{ color: c.textPrimary, fontWeight: 700, fontSize: 14, marginBottom: 4 }}
+                    labelFormatter={(_label, payload) =>
+                      (payload?.[0]?.payload as { marke?: string })?.marke ?? ''
+                    }
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+              {brandPieData.map((b, i) => (
+                <div
+                  key={b.marke}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs"
+                  style={{ background: c.elevated, border: `1px solid ${c.border}` }}
+                >
+                  <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: BRAND_COLORS[i % BRAND_COLORS.length] }} />
+                  <span className="font-semibold" style={{ color: c.textPrimary }}>{b.marke}</span>
+                  <span className="num" style={{ color: c.textMuted }}>
+                    {brandTab === 'anzahl' ? `${b.anzahl} FZ` : formatCurrency(b.verdienst)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Grand Total hero */}
       <div

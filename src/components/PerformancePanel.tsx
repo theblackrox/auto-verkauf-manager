@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { Auto, BrandPerformance } from '@/types';
-import { formatCurrency } from '@/utils/calculations';
+import { formatCurrency, calculateVerdienst } from '@/utils/calculations';
 import { useTheme } from '@/context/ThemeContext';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -79,15 +79,49 @@ function BrandCard({ gruppe }: { gruppe: { marke: string; autos: Auto[]; total: 
       <div className="flex-1 divide-y" style={{ borderColor: c.borderSubtle }}>
         {visibleAutos.map(a => (
           <div key={a.id} className="px-4 py-2.5 flex items-center justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm font-medium truncate" style={{ color: c.textPrimary }}>{a.modell}</p>
-              {a.interne_nummer && (
-                <p className="text-xs font-mono" style={{ color: c.textDim }}>{a.interne_nummer}</p>
+            <div className="min-w-0 flex items-center gap-2">
+              {a.bereits_verkauft ? (
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="none">
+                  <circle cx="10" cy="10" r="9" fill="rgba(16,185,129,0.15)" stroke="#10b981" strokeWidth="1.5" />
+                  <path d="M6 10l3 3 5-5" stroke="#10b981" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 20 20" fill="none">
+                  <circle cx="10" cy="10" r="9" fill="rgba(100,116,139,0.1)" stroke="rgba(100,116,139,0.3)" strokeWidth="1.5" />
+                  <path d="M10 7v3m0 2.5v.5" stroke="rgba(100,116,139,0.5)" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
               )}
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: c.textPrimary }}>{a.modell}</p>
+                {a.interne_nummer && (
+                  <p className="text-xs font-mono" style={{ color: c.textDim }}>{a.interne_nummer}</p>
+                )}
+              </div>
             </div>
-            <span className="text-sm num font-semibold shrink-0" style={{ color: c.colorAmber }}>
-              {formatCurrency(a.einkaufspreis)}
-            </span>
+            <div className="flex items-center gap-3 shrink-0 text-right">
+              {a.bereits_verkauft && a.verkaufspreis > 0 && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wide leading-none mb-0.5" style={{ color: c.textDim }}>Verkauft für</p>
+                  <p className="text-xs num font-semibold" style={{ color: c.colorBlue }}>{formatCurrency(a.verkaufspreis)}</p>
+                </div>
+              )}
+              {(() => {
+                const v = calculateVerdienst(a);
+                if (v === null) return null;
+                return (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wide leading-none mb-0.5" style={{ color: c.textDim }}>Verdienst</p>
+                    <p className="text-xs num font-bold" style={{ color: v >= 0 ? c.colorPos : c.colorNeg }}>
+                      {v >= 0 ? '+' : ''}{formatCurrency(v)}
+                    </p>
+                  </div>
+                );
+              })()}
+              <div>
+                <p className="text-[10px] uppercase tracking-wide leading-none mb-0.5" style={{ color: c.textDim }}>Einkauf</p>
+                <p className="text-sm num font-semibold" style={{ color: c.colorAmber }}>{formatCurrency(a.einkaufspreis)}</p>
+              </div>
+            </div>
           </div>
         ))}
       </div>
